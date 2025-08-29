@@ -1,91 +1,121 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="pt-BR">
 <head>
-  <meta charset="UTF-8">
-  <title>Prototipo Gabarito</title>
-  <style>
-    body {
-      margin: 0;
-      overflow: hidden;
-      background: black;
-    }
-    video, canvas {
-      position: absolute;
-      top: 0;
-      left: 0;
-    }
-    video {
-      width: 100%;
-      height: auto;
-    }
-    canvas {
-      width: 100%;
-      height: 100%;
-      pointer-events: none;
-    }
-  </style>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
+<title>Corretor de Gabaritos - Overlay A-E</title>
+<style>
+body{font-family:sans-serif;background:#071226;color:#fff;display:flex;flex-direction:column;align-items:center;padding:12px}
+video, canvas{border:1px solid #333;border-radius:8px;max-width:100%}
+input, button{margin:6px 0;padding:8px 12px;border-radius:6px;border:none;font-size:16px}
+button{background:#0ea5e9;color:#fff;cursor:pointer}
+.result{margin-top:12px;padding:8px;background:rgba(6,182,212,0.1);border-radius:6px;white-space:pre-line}
+</style>
 </head>
 <body>
-  <video id="camera" autoplay playsinline></video>
-  <canvas id="overlay"></canvas>
+<h1>Corretor de Gabaritos</h1>
 
-  <script>
-    const video = document.getElementById("camera");
-    const overlay = document.getElementById("overlay");
-    const ctx = overlay.getContext("2d");
+<video id="camera" autoplay playsinline></video><br>
+<button id="captureBtn">📸 Capturar</button>
+<button id="processBtn">⚡ Processar</button><br>
 
-    // Solicita a câmera traseira
-    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-      .then(stream => { video.srcObject = stream; })
-      .catch(err => console.error("Erro ao acessar câmera:", err));
+<label>Gabarito correto (ex: A,B,C,D,E,A,B...)</label>
+<input id="answerKey" placeholder="Ex: A,B,C,D,E,A,B" value="A,B,C,D,E,A,B,C,D,E">
 
-    function drawGrid() {
-      ctx.clearRect(0, 0, overlay.width, overlay.height);
+<canvas id="canvasOut" width="400" height="500"></canvas>
 
-      const rows = 20; // número de questões
-      const cols = 5;  // alternativas A-E
+<div class="result" id="resultBox">Nenhuma análise realizada.</div>
 
-      // Área centralizada do grid (ocupa só parte da tela)
-      const marginX = overlay.width * 0.2;   // margem esquerda/direita
-      const marginY = overlay.height * 0.1;  // margem topo/baixo
-      const gridWidth = overlay.width * 0.6;
-      const gridHeight = overlay.height * 0.8;
+<script>
+const video=document.getElementById('camera');
+const canvas=document.getElementById('canvasOut');
+const ctx=canvas.getContext('2d');
+const captureBtn=document.getElementById('captureBtn');
+const processBtn=document.getElementById('processBtn');
+const resultBox=document.getElementById('resultBox');
 
-      const cellWidth = gridWidth / cols;
-      const cellHeight = gridHeight / rows;
-      const radius = Math.min(cellWidth, cellHeight) * 0.3; // tamanho do círculo
+async function startCamera(){
+  try{
+    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
+    video.srcObject=stream;
+    await video.play();
+  }catch(e){alert('Erro ao acessar câmera: '+e.message);}
+}
+startCamera();
 
-      ctx.strokeStyle = "red";
-      ctx.lineWidth = 2;
+let capturedImage=null;
+captureBtn.addEventListener('click',()=>{
+  canvas.width=video.videoWidth;
+  canvas.height=video.videoHeight;
+  ctx.drawImage(video,0,0,canvas.width,canvas.height);
+  capturedImage=ctx.getImageData(0,0,canvas.width,canvas.height);
+  alert('Foto capturada! Agora clique em Processar.');
+});
 
-      // desenha os círculos A-E por questão
-      for (let r = 0; r < rows; r++) {
-        for (let c = 0; c < cols; c++) {
-          const centerX = marginX + c * cellWidth + cellWidth / 2;
-          const centerY = marginY + r * cellHeight + cellHeight / 2;
-
-          ctx.beginPath();
-          ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-          ctx.stroke();
+// Função de detecção simples
+function detectFilledBubbles(imgData,numQuestions=10,numOptions=5){
+  const results=[];
+  const w=imgData.width;
+  const h=imgData.height;
+  const qHeight=Math.floor(h/numQuestions);
+  const oWidth=Math.floor(w/numOptions);
+  for(let i=0;i<numQuestions;i++){
+    let maxSum=0, sel=0;
+    for(let o=0;o<numOptions;o++){
+      let sum=0;
+      for(let y=i*qHeight;y<(i+1)*qHeight;y++){
+        for(let x=o*oWidth;x<(o+1)*oWidth;x++){
+          const idx=(y*w+x)*4;
+          const r=imgData.data[idx],g=imgData.data[idx+1],b=imgData.data[idx+2];
+          const brightness=(r+g+b)/3;
+          sum+=255-brightness;
         }
       }
+      if(sum>maxSum){maxSum=sum; sel=o;}
     }
+    results.push(sel); // índice da alternativa selecionada
+  }
+  return results;
+}
 
-    // Ajusta o canvas ao tamanho da tela
-    function resizeCanvas() {
-      overlay.width = window.innerWidth;
-      overlay.height = window.innerHeight;
+// Processar respostas e mostrar overlay
+processBtn.addEventListener('click',()=>{
+  if(!capturedImage){alert('Capture uma foto antes.'); return;}
+  const answerText=document.getElementById('answerKey').value;
+  const key=answerText.split(',').map(s=>s.trim().toUpperCase());
+  const detected=detectFilledBubbles(capturedImage,key.length,5);
+
+  // redesenha imagem capturada
+  ctx.putImageData(capturedImage,0,0);
+
+  let score=0;
+  let feedback='';
+  const qHeight=Math.floor(canvas.height/key.length);
+  const oWidth=Math.floor(canvas.width/5);
+  const letters="ABCDE";
+
+  for(let i=0;i<key.length;i++){
+    const correctIdx=letters.indexOf(key[i]);
+    const chosen=detected[i];
+    const centerX=chosen*oWidth+oWidth/2;
+    const centerY=i*qHeight+qHeight/2;
+
+    if(correctIdx===chosen){
+      score++;
+      ctx.strokeStyle='lime';
+    }else{
+      ctx.strokeStyle='red';
     }
-    window.addEventListener("resize", () => {
-      resizeCanvas();
-      drawGrid();
-    });
+    ctx.lineWidth=5;
+    ctx.beginPath();
+    ctx.arc(centerX,centerY,Math.min(oWidth,qHeight)/4,0,2*Math.PI);
+    ctx.stroke();
 
-    resizeCanvas();
-    drawGrid();
-  </script>
+    feedback+=`Q${i+1}: Esperado ${key[i]}, Marcado ${letters[chosen]} ${chosen===correctIdx?'✅':'❌'}\n`;
+  }
+
+  resultBox.textContent=`Acertos: ${score}/${key.length}\n\n${feedback}`;
+});
+</script>
 </body>
 </html>
-
-
-
