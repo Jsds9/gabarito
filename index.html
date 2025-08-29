@@ -3,10 +3,12 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
-<title>Corretor de Gabaritos - Overlay A-E com Grid</title>
+<title>Corretor de Gabaritos - Overlay em tempo real</title>
 <style>
 body{font-family:sans-serif;background:#071226;color:#fff;display:flex;flex-direction:column;align-items:center;padding:12px}
+#cameraWrapper{position:relative;display:inline-block}
 video, canvas{border:1px solid #333;border-radius:8px;max-width:100%}
+#overlay{position:absolute;left:0;top:0;pointer-events:none}
 input, button{margin:6px 0;padding:8px 12px;border-radius:6px;border:none;font-size:16px}
 button{background:#0ea5e9;color:#fff;cursor:pointer}
 .result{margin-top:12px;padding:8px;background:rgba(6,182,212,0.1);border-radius:6px;white-space:pre-line}
@@ -15,7 +17,11 @@ button{background:#0ea5e9;color:#fff;cursor:pointer}
 <body>
 <h1>Corretor de Gabaritos</h1>
 
-<video id="camera" autoplay playsinline></video><br>
+<div id="cameraWrapper">
+  <video id="camera" autoplay playsinline></video>
+  <canvas id="overlay"></canvas>
+</div><br>
+
 <button id="captureBtn">📸 Capturar</button>
 <button id="processBtn">⚡ Processar</button><br>
 
@@ -28,57 +34,67 @@ button{background:#0ea5e9;color:#fff;cursor:pointer}
 
 <script>
 const video=document.getElementById('camera');
+const overlay=document.getElementById('overlay');
+const octx=overlay.getContext('2d');
 const canvas=document.getElementById('canvasOut');
 const ctx=canvas.getContext('2d');
 const captureBtn=document.getElementById('captureBtn');
 const processBtn=document.getElementById('processBtn');
 const resultBox=document.getElementById('resultBox');
 
+let capturedImage=null;
+
 async function startCamera(){
   try{
     const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
     video.srcObject=stream;
     await video.play();
+
+    // Ajusta overlay do mesmo tamanho do vídeo
+    overlay.width=video.videoWidth;
+    overlay.height=video.videoHeight;
+
+    drawLiveGrid();
   }catch(e){alert('Erro ao acessar câmera: '+e.message);}
 }
 startCamera();
 
-let capturedImage=null;
+// Desenha grid em loop
+function drawLiveGrid(){
+  requestAnimationFrame(drawLiveGrid);
+  if(!overlay.width||!overlay.height) return;
+
+  octx.clearRect(0,0,overlay.width,overlay.height);
+
+  const numQuestions=document.getElementById('answerKey').value.split(',').length;
+  const numOptions=5;
+  const qHeight=overlay.height/numQuestions;
+  const oWidth=overlay.width/numOptions;
+
+  octx.strokeStyle='rgba(255,255,255,0.6)';
+  octx.lineWidth=1;
+
+  for(let i=1;i<numQuestions;i++){
+    octx.beginPath();
+    octx.moveTo(0,i*qHeight);
+    octx.lineTo(overlay.width,i*qHeight);
+    octx.stroke();
+  }
+  for(let j=1;j<numOptions;j++){
+    octx.beginPath();
+    octx.moveTo(j*oWidth,0);
+    octx.lineTo(j*oWidth,overlay.height);
+    octx.stroke();
+  }
+}
+
 captureBtn.addEventListener('click',()=>{
   canvas.width=video.videoWidth;
   canvas.height=video.videoHeight;
   ctx.drawImage(video,0,0,canvas.width,canvas.height);
   capturedImage=ctx.getImageData(0,0,canvas.width,canvas.height);
-  drawGrid(); // desenha linhas de referência
   alert('Foto capturada! Agora clique em Processar.');
 });
-
-// desenha grid de alinhamento
-function drawGrid(){
-  if(!capturedImage) return;
-  const numQuestions=document.getElementById('answerKey').value.split(',').length;
-  const numOptions=5; // A-E
-  const qHeight=canvas.height/numQuestions;
-  const oWidth=canvas.width/numOptions;
-
-  ctx.strokeStyle='rgba(255,255,255,0.5)';
-  ctx.lineWidth=1;
-
-  // linhas horizontais
-  for(let i=1;i<numQuestions;i++){
-    ctx.beginPath();
-    ctx.moveTo(0,i*qHeight);
-    ctx.lineTo(canvas.width,i*qHeight);
-    ctx.stroke();
-  }
-  // linhas verticais
-  for(let j=1;j<numOptions;j++){
-    ctx.beginPath();
-    ctx.moveTo(j*oWidth,0);
-    ctx.lineTo(j*oWidth,canvas.height);
-    ctx.stroke();
-  }
-}
 
 // Função de detecção simples
 function detectFilledBubbles(imgData,numQuestions=10,numOptions=5){
@@ -101,21 +117,18 @@ function detectFilledBubbles(imgData,numQuestions=10,numOptions=5){
       }
       if(sum>maxSum){maxSum=sum; sel=o;}
     }
-    results.push(sel); // índice da alternativa selecionada
+    results.push(sel);
   }
   return results;
 }
 
-// Processar respostas e mostrar overlay
 processBtn.addEventListener('click',()=>{
   if(!capturedImage){alert('Capture uma foto antes.'); return;}
   const answerText=document.getElementById('answerKey').value;
   const key=answerText.split(',').map(s=>s.trim().toUpperCase());
   const detected=detectFilledBubbles(capturedImage,key.length,5);
 
-  // redesenha imagem capturada + grid
   ctx.putImageData(capturedImage,0,0);
-  drawGrid();
 
   let score=0;
   let feedback='';
@@ -148,5 +161,3 @@ processBtn.addEventListener('click',()=>{
 </script>
 </body>
 </html>
-
-
