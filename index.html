@@ -1,121 +1,76 @@
-<!doctype html>
+<!DOCTYPE html>
 <html lang="pt-BR">
 <head>
-<meta charset="utf-8">
-<meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
-<title>Corretor de Gabaritos - Overlay A-E</title>
-<style>
-body{font-family:sans-serif;background:#071226;color:#fff;display:flex;flex-direction:column;align-items:center;padding:12px}
-video, canvas{border:1px solid #333;border-radius:8px;max-width:100%}
-input, button{margin:6px 0;padding:8px 12px;border-radius:6px;border:none;font-size:16px}
-button{background:#0ea5e9;color:#fff;cursor:pointer}
-.result{margin-top:12px;padding:8px;background:rgba(6,182,212,0.1);border-radius:6px;white-space:pre-line}
-</style>
+  <meta charset="UTF-8">
+  <title>Prototipo Gabarito</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+    }
+    video, canvas {
+      max-width: 100%;
+      max-height: 80vh;
+      border: 2px solid #ccc;
+      border-radius: 12px;
+      margin: 10px 0;
+    }
+    #controls {
+      display: flex;
+      gap: 10px;
+    }
+    button {
+      padding: 10px 20px;
+      font-size: 16px;
+      border: none;
+      border-radius: 8px;
+      background: #007bff;
+      color: white;
+      cursor: pointer;
+    }
+    button:hover {
+      background: #0056b3;
+    }
+  </style>
 </head>
 <body>
-<h1>Corretor de Gabaritos</h1>
+  <video id="camera" autoplay playsinline></video>
+  <canvas id="snapshot"></canvas>
+  <div id="controls">
+    <button id="capture">📸 Capturar</button>
+    <button id="analyze">🔎 Analisar</button>
+  </div>
 
-<video id="camera" autoplay playsinline></video><br>
-<button id="captureBtn">📸 Capturar</button>
-<button id="processBtn">⚡ Processar</button><br>
+  <script>
+    const video = document.getElementById("camera");
+    const canvas = document.getElementById("snapshot");
+    const ctx = canvas.getContext("2d");
 
-<label>Gabarito correto (ex: A,B,C,D,E,A,B...)</label>
-<input id="answerKey" placeholder="Ex: A,B,C,D,E,A,B" value="A,B,C,D,E,A,B,C,D,E">
+    // Inicia câmera traseira
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => { video.srcObject = stream; })
+      .catch(err => console.error("Erro ao acessar câmera:", err));
 
-<canvas id="canvasOut" width="400" height="500"></canvas>
+    // Ajusta canvas ao tamanho do vídeo
+    video.addEventListener("loadedmetadata", () => {
+      canvas.width = video.videoWidth;
+      canvas.height = video.videoHeight;
+    });
 
-<div class="result" id="resultBox">Nenhuma análise realizada.</div>
+    // Botão de captura
+    document.getElementById("capture").addEventListener("click", () => {
+      ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
+    });
 
-<script>
-const video=document.getElementById('camera');
-const canvas=document.getElementById('canvasOut');
-const ctx=canvas.getContext('2d');
-const captureBtn=document.getElementById('captureBtn');
-const processBtn=document.getElementById('processBtn');
-const resultBox=document.getElementById('resultBox');
-
-async function startCamera(){
-  try{
-    const stream=await navigator.mediaDevices.getUserMedia({video:{facingMode:'environment'},audio:false});
-    video.srcObject=stream;
-    await video.play();
-  }catch(e){alert('Erro ao acessar câmera: '+e.message);}
-}
-startCamera();
-
-let capturedImage=null;
-captureBtn.addEventListener('click',()=>{
-  canvas.width=video.videoWidth;
-  canvas.height=video.videoHeight;
-  ctx.drawImage(video,0,0,canvas.width,canvas.height);
-  capturedImage=ctx.getImageData(0,0,canvas.width,canvas.height);
-  alert('Foto capturada! Agora clique em Processar.');
-});
-
-// Função de detecção simples
-function detectFilledBubbles(imgData,numQuestions=10,numOptions=5){
-  const results=[];
-  const w=imgData.width;
-  const h=imgData.height;
-  const qHeight=Math.floor(h/numQuestions);
-  const oWidth=Math.floor(w/numOptions);
-  for(let i=0;i<numQuestions;i++){
-    let maxSum=0, sel=0;
-    for(let o=0;o<numOptions;o++){
-      let sum=0;
-      for(let y=i*qHeight;y<(i+1)*qHeight;y++){
-        for(let x=o*oWidth;x<(o+1)*oWidth;x++){
-          const idx=(y*w+x)*4;
-          const r=imgData.data[idx],g=imgData.data[idx+1],b=imgData.data[idx+2];
-          const brightness=(r+g+b)/3;
-          sum+=255-brightness;
-        }
-      }
-      if(sum>maxSum){maxSum=sum; sel=o;}
-    }
-    results.push(sel); // índice da alternativa selecionada
-  }
-  return results;
-}
-
-// Processar respostas e mostrar overlay
-processBtn.addEventListener('click',()=>{
-  if(!capturedImage){alert('Capture uma foto antes.'); return;}
-  const answerText=document.getElementById('answerKey').value;
-  const key=answerText.split(',').map(s=>s.trim().toUpperCase());
-  const detected=detectFilledBubbles(capturedImage,key.length,5);
-
-  // redesenha imagem capturada
-  ctx.putImageData(capturedImage,0,0);
-
-  let score=0;
-  let feedback='';
-  const qHeight=Math.floor(canvas.height/key.length);
-  const oWidth=Math.floor(canvas.width/5);
-  const letters="ABCDE";
-
-  for(let i=0;i<key.length;i++){
-    const correctIdx=letters.indexOf(key[i]);
-    const chosen=detected[i];
-    const centerX=chosen*oWidth+oWidth/2;
-    const centerY=i*qHeight+qHeight/2;
-
-    if(correctIdx===chosen){
-      score++;
-      ctx.strokeStyle='lime';
-    }else{
-      ctx.strokeStyle='red';
-    }
-    ctx.lineWidth=5;
-    ctx.beginPath();
-    ctx.arc(centerX,centerY,Math.min(oWidth,qHeight)/4,0,2*Math.PI);
-    ctx.stroke();
-
-    feedback+=`Q${i+1}: Esperado ${key[i]}, Marcado ${letters[chosen]} ${chosen===correctIdx?'✅':'❌'}\n`;
-  }
-
-  resultBox.textContent=`Acertos: ${score}/${key.length}\n\n${feedback}`;
-});
-</script>
+    // Botão de análise (a lógica será adicionada depois)
+    document.getElementById("analyze").addEventListener("click", () => {
+      alert("Aqui será feita a análise do gabarito.");
+    });
+  </script>
 </body>
 </html>
