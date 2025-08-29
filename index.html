@@ -1,56 +1,91 @@
-<video id="camera" autoplay playsinline style="width: 100%; height: auto; position: absolute; top: 0; left: 0;"></video>
-<canvas id="overlay" style="position: absolute; top: 0; left: 0; width: 100%; height: 100%; pointer-events: none;"></canvas>
-
-<script>
-const video = document.getElementById("camera");
-const overlay = document.getElementById("overlay");
-const ctx = overlay.getContext("2d");
-
-navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
-  .then(stream => { video.srcObject = stream; });
-
-function drawGrid() {
-  ctx.clearRect(0, 0, overlay.width, overlay.height);
-
-  const rows = 20; // número de questões
-  const cols = 5;  // alternativas A-E
-
-  // Área centralizada do grid (ocupa só parte da tela)
-  const marginX = overlay.width * 0.2;   // margem esquerda/direita
-  const marginY = overlay.height * 0.1;  // margem topo/baixo
-  const gridWidth = overlay.width * 0.6;
-  const gridHeight = overlay.height * 0.8;
-
-  const cellWidth = gridWidth / cols;
-  const cellHeight = gridHeight / rows;
-  const radius = Math.min(cellWidth, cellHeight) * 0.3; // tamanho do círculo
-
-  ctx.strokeStyle = "red";
-  ctx.lineWidth = 2;
-
-  // desenha os círculos A-E por questão
-  for (let r = 0; r < rows; r++) {
-    for (let c = 0; c < cols; c++) {
-      const centerX = marginX + c * cellWidth + cellWidth / 2;
-      const centerY = marginY + r * cellHeight + cellHeight / 2;
-
-      ctx.beginPath();
-      ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
-      ctx.stroke();
+<!DOCTYPE html>
+<html lang="pt-BR">
+<head>
+  <meta charset="UTF-8">
+  <title>Prototipo Gabarito</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+      background: black;
     }
-  }
-}
+    video, canvas {
+      position: absolute;
+      top: 0;
+      left: 0;
+    }
+    video {
+      width: 100%;
+      height: auto;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+      pointer-events: none;
+    }
+  </style>
+</head>
+<body>
+  <video id="camera" autoplay playsinline></video>
+  <canvas id="overlay"></canvas>
 
-// Ajusta o canvas ao tamanho da tela
-function resizeCanvas() {
-  overlay.width = window.innerWidth;
-  overlay.height = window.innerHeight;
-}
-window.addEventListener("resize", () => {
-  resizeCanvas();
-  drawGrid();
-});
-resizeCanvas();
-drawGrid();
-</script>
+  <script>
+    const video = document.getElementById("camera");
+    const overlay = document.getElementById("overlay");
+    const ctx = overlay.getContext("2d");
+
+    // Solicita a câmera traseira
+    navigator.mediaDevices.getUserMedia({ video: { facingMode: "environment" } })
+      .then(stream => { video.srcObject = stream; })
+      .catch(err => console.error("Erro ao acessar câmera:", err));
+
+    function drawGrid() {
+      ctx.clearRect(0, 0, overlay.width, overlay.height);
+
+      const rows = 20; // número de questões
+      const cols = 5;  // alternativas A-E
+
+      // Área centralizada do grid (ocupa só parte da tela)
+      const marginX = overlay.width * 0.2;   // margem esquerda/direita
+      const marginY = overlay.height * 0.1;  // margem topo/baixo
+      const gridWidth = overlay.width * 0.6;
+      const gridHeight = overlay.height * 0.8;
+
+      const cellWidth = gridWidth / cols;
+      const cellHeight = gridHeight / rows;
+      const radius = Math.min(cellWidth, cellHeight) * 0.3; // tamanho do círculo
+
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 2;
+
+      // desenha os círculos A-E por questão
+      for (let r = 0; r < rows; r++) {
+        for (let c = 0; c < cols; c++) {
+          const centerX = marginX + c * cellWidth + cellWidth / 2;
+          const centerY = marginY + r * cellHeight + cellHeight / 2;
+
+          ctx.beginPath();
+          ctx.arc(centerX, centerY, radius, 0, 2 * Math.PI);
+          ctx.stroke();
+        }
+      }
+    }
+
+    // Ajusta o canvas ao tamanho da tela
+    function resizeCanvas() {
+      overlay.width = window.innerWidth;
+      overlay.height = window.innerHeight;
+    }
+    window.addEventListener("resize", () => {
+      resizeCanvas();
+      drawGrid();
+    });
+
+    resizeCanvas();
+    drawGrid();
+  </script>
+</body>
+</html>
+
+
 
