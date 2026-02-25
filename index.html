@@ -3,82 +3,112 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width,initial-scale=1.0,viewport-fit=cover">
-  <title>Protótipo: Corretor de Gabaritos (PWA)</title>
-  <meta name="description" content="Protótipo web (PWA) que usa a câmera para corrigir gabaritos por detecção de bolinhas.">
+  <title>Corretor de Gabaritos (Protótipo Web)</title>
+  <meta name="description" content="Aplicativo web para capturar, ler e corrigir gabaritos de prova.">
   <style>
-    :root{--bg:#0f1724;--card:#0b1220;--muted:#94a3b8;--accent:#06b6d4}
+    :root{--bg:#0f1724;--card:#0b1220;--muted:#94a3b8;--accent:#06b6d4;--ok:#34d399;--err:#f87171}
     *{box-sizing:border-box;font-family:Inter,system-ui,Arial,Helvetica,sans-serif}
-    body{margin:0;background:linear-gradient(180deg,#071226 0%, #071830 100%);color:#e6eef6;min-height:100vh;display:flex;gap:18px;align-items:flex-start;padding:18px}
-    .app{max-width:1100px;margin:0 auto;width:100%}
-    header{display:flex;align-items:center;gap:12px}
-    h1{margin:0;font-size:18px}
-    .grid{display:grid;grid-template-columns:360px 1fr;gap:16px}
+    body{margin:0;background:linear-gradient(180deg,#071226 0%, #071830 100%);color:#e6eef6;min-height:100vh;display:flex;align-items:flex-start;padding:18px}
+    .app{max-width:1200px;margin:0 auto;width:100%}
+    h1{margin:0;font-size:20px}
+    .subtitle{margin:6px 0 0;color:var(--muted);font-size:13px}
+    .grid{display:grid;grid-template-columns:380px 1fr;gap:16px;margin-top:12px}
     .card{background:rgba(255,255,255,0.03);padding:12px;border-radius:12px;box-shadow:0 6px 18px rgba(2,6,23,0.6)}
     video, canvas{width:100%;border-radius:8px;background:#000}
     label{display:block;margin-top:8px;color:var(--muted);font-size:13px}
-    input, select, button, textarea{width:100%;padding:8px;margin-top:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:transparent;color:inherit}
+    input, button, textarea{width:100%;padding:8px;margin-top:6px;border-radius:8px;border:1px solid rgba(255,255,255,0.08);background:transparent;color:inherit}
+    input::placeholder, textarea::placeholder{color:#64748b}
+    button{cursor:pointer}
+    button:hover{background:rgba(255,255,255,0.05)}
     .row{display:flex;gap:8px}
-    .small{width:70px}
-    .result{padding:8px;border-radius:8px;margin-top:8px;background:rgba(6,182,212,0.06);color:var(--accent)}
+    .result{padding:10px;border-radius:8px;margin-top:10px;background:rgba(6,182,212,0.09);color:var(--accent);font-size:14px}
     .overlay{position:relative}
     .overlay canvas{position:absolute;left:0;top:0;width:100%;height:100%;pointer-events:none}
+    .legend{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:10px}
+    .pill{padding:6px 8px;border-radius:999px;font-size:12px;text-align:center}
+    .pill.ok{background:rgba(52,211,153,0.15);color:var(--ok)}
+    .pill.err{background:rgba(248,113,113,0.15);color:var(--err)}
+    table{width:100%;border-collapse:collapse;margin-top:10px;font-size:13px}
+    th,td{padding:6px;border-bottom:1px solid rgba(255,255,255,0.08);text-align:left}
+    .good{color:var(--ok)}
+    .bad{color:var(--err)}
     footer{margin-top:12px;color:var(--muted);font-size:13px}
+    @media (max-width: 960px){.grid{grid-template-columns:1fr}}
   </style>
 </head>
 <body>
   <div class="app">
     <header>
-      <h1>Protótipo: Corretor de Gabaritos (PWA)</h1>
+      <h1>Corretor de Gabaritos (Protótipo Web)</h1>
+      <p class="subtitle">Capture a folha, detecte marcações e compare com o gabarito oficial.</p>
     </header>
+
     <main class="grid">
       <section class="card">
-        <h3>1) Câmera / Captura</h3>
+        <h3>1) Captura</h3>
         <div class="overlay">
           <video id="camera" playsinline autoplay></video>
           <canvas id="overlayCanvas"></canvas>
         </div>
+
         <div style="margin-top:8px" class="row">
           <button id="startCam">Iniciar câmera</button>
           <button id="capture">Capturar</button>
-          <button id="process">Processar</button>
+          <button id="process">Ler + Corrigir</button>
         </div>
 
-        <h3 style="margin-top:12px">2) Parâmetros do gabarito</h3>
+        <h3 style="margin-top:12px">2) Configuração do gabarito</h3>
         <label>Nº de questões</label>
-        <input id="numQ" type="number" value="10" min="1">
-        <label>Alternativas por questão (ex: 4 = A–D, 5 = A–E)</label>
-        <input id="numAlt" type="number" value="4" min="2" max="6">
-        <label>Linhas de leitura (quantas linhas de questões no papel)</label>
-        <input id="numLines" type="number" value="5" min="1">
+        <input id="numQ" type="number" value="10" min="1" max="120">
 
-        <label>Gabarito correto (seq. ex: A,B,C,D,...)</label>
+        <label>Alternativas por questão (A até ...)</label>
+        <input id="numAlt" type="number" value="4" min="2" max="6">
+
+        <label>Gabarito correto (A,B,C,D,...)</label>
         <input id="answerKey" placeholder="Ex: A,B,C,D,A,B,C,D,A,B" value="A,B,C,D,A,B,C,D,A,B">
 
+        <label>Limiar de marcação (0.20–0.80)</label>
+        <input id="markThreshold" type="number" step="0.01" min="0.20" max="0.80" value="0.42">
+
         <div class="row" style="margin-top:8px">
-          <button id="loadKey">Carregar gabarito</button>
-          <button id="exportJSON">Exportar gabarito (JSON)</button>
+          <button id="loadKey">Validar gabarito</button>
+          <button id="exportJSON">Exportar JSON</button>
         </div>
 
-        <h3 style="margin-top:12px">3) Resultado</h3>
         <div id="resultBox" class="result">Nenhuma análise realizada ainda.</div>
+        <div class="legend">
+          <div class="pill ok">✓ Questões corretas</div>
+          <div class="pill err">✗ Questões incorretas</div>
+        </div>
 
         <footer>
-          Use este protótipo em celular apontando para um gabarito impresso. Para melhores resultados, adicione marcadores nos cantos ou alinhe bem o formulário.
+          Dica: alinhe a folha inteira no enquadramento. Este protótipo usa uma grade uniforme de bolhas para detectar marcações.
         </footer>
       </section>
 
       <section class="card">
-        <h3>Visão e Processamento</h3>
+        <h3>Pré-visualização / Resultado</h3>
         <canvas id="canvasOut"></canvas>
+
+        <h4>Detalhamento por questão</h4>
+        <div style="max-height:260px;overflow:auto">
+          <table>
+            <thead>
+              <tr><th>Q</th><th>Marcada</th><th>Correta</th><th>Status</th></tr>
+            </thead>
+            <tbody id="resultTable"></tbody>
+          </table>
+        </div>
+
         <h4>Log</h4>
         <textarea id="log" rows="8" readonly></textarea>
       </section>
     </main>
   </div>
 
-  <!-- OpenCV.js -->
-  <script async src="https://docs.opencv.org/4.x/opencv.js" onload="onOpenCvReady();"></script>
   <script>
+    const LETTERS = ['A','B','C','D','E','F'];
+
     const video = document.getElementById('camera');
     const overlayCanvas = document.getElementById('overlayCanvas');
     const canvasOut = document.getElementById('canvasOut');
@@ -87,19 +117,61 @@
     const processBtn = document.getElementById('process');
     const numQ = document.getElementById('numQ');
     const numAlt = document.getElementById('numAlt');
-    const numLines = document.getElementById('numLines');
     const answerKey = document.getElementById('answerKey');
+    const markThreshold = document.getElementById('markThreshold');
     const loadKeyBtn = document.getElementById('loadKey');
     const exportBtn = document.getElementById('exportJSON');
     const logEl = document.getElementById('log');
     const resultBox = document.getElementById('resultBox');
+    const resultTable = document.getElementById('resultTable');
 
     let stream = null;
     let capturedImage = null;
-    let cvReady = false;
 
     function log(s){
-      logEl.value = (new Date()).toLocaleTimeString()+" — "+s+"\n"+logEl.value;
+      logEl.value = `${new Date().toLocaleTimeString()} — ${s}\n${logEl.value}`;
+    }
+
+    function parseAnswerKey(text){
+      return text
+        .split(',')
+        .map(s=>s.trim().toUpperCase())
+        .filter(Boolean);
+    }
+
+    function normalizeKey(raw, nQuestions, nAlt){
+      const allowed = LETTERS.slice(0, nAlt);
+      return raw.slice(0,nQuestions).map(letter => allowed.includes(letter) ? letter : '-');
+    }
+
+    function drawOverlayGrid(ctx, width, height, nQuestions, nAlt){
+      ctx.clearRect(0,0,width,height);
+      const marginX = width * 0.12;
+      const marginY = height * 0.10;
+      const gridW = width - marginX * 2;
+      const gridH = height - marginY * 2;
+      const rowGap = gridH / nQuestions;
+      const colGap = gridW / (nAlt + 1);
+      const radius = Math.max(6, Math.min(rowGap, colGap) * 0.25);
+
+      ctx.strokeStyle = 'rgba(6,182,212,0.95)';
+      ctx.lineWidth = 1.5;
+      ctx.font = '12px sans-serif';
+      ctx.fillStyle = 'rgba(230,238,246,0.8)';
+
+      for(let q = 0; q < nQuestions; q++){
+        const y = marginY + rowGap * (q + 0.5);
+        ctx.fillText(String(q+1), marginX - 24, y + 3);
+        for(let a = 0; a < nAlt; a++){
+          const x = marginX + colGap * (a + 1);
+          ctx.beginPath();
+          ctx.arc(x, y, radius, 0, Math.PI*2);
+          ctx.stroke();
+          if(q === 0){
+            ctx.fillText(LETTERS[a], x-4, marginY - 8);
+          }
+        }
+      }
     }
 
     async function startCamera(){
@@ -110,72 +182,220 @@
         });
         video.srcObject = stream;
         await video.play();
+
         overlayCanvas.width = video.videoWidth;
         overlayCanvas.height = video.videoHeight;
-        canvasOut.width = 800;
-        canvasOut.height = 1100;
-        log('Câmera iniciada');
+        canvasOut.width = 900;
+        canvasOut.height = 1280;
+
+        drawOverlayGrid(overlayCanvas.getContext('2d'), overlayCanvas.width, overlayCanvas.height, Number(numQ.value), Number(numAlt.value));
+        log('Câmera iniciada. Grade desenhada sobre o vídeo.');
       }catch(e){
-        log('Erro ao iniciar câmera: '+e.message);
-        alert('Não foi possível acessar a câmera: '+e.message);
+        log('Erro ao iniciar câmera: ' + e.message);
+        alert('Não foi possível acessar a câmera: ' + e.message);
       }
     }
 
-    startCamBtn.addEventListener('click', ()=>startCamera());
-
-    captureBtn.addEventListener('click', ()=>{
-      if(!video || video.readyState!==4){ alert('Câmera não pronta'); return; }
+    function captureFrame(){
+      if(!video || video.readyState !== 4){
+        alert('Câmera não pronta.');
+        return;
+      }
       const cvCanvas = document.createElement('canvas');
       cvCanvas.width = video.videoWidth;
       cvCanvas.height = video.videoHeight;
       const ctx = cvCanvas.getContext('2d');
-      ctx.drawImage(video,0,0,cvCanvas.width,cvCanvas.height);
+      ctx.drawImage(video, 0, 0, cvCanvas.width, cvCanvas.height);
+
       capturedImage = new Image();
       capturedImage.src = cvCanvas.toDataURL('image/png');
-      capturedImage.onload = ()=>{
-        const ctxOut = canvasOut.getContext('2d');
-        ctxOut.clearRect(0,0,canvasOut.width,canvasOut.height);
-        const scale = Math.min(canvasOut.width/capturedImage.width, canvasOut.height/capturedImage.height);
-        const w = capturedImage.width*scale, h = capturedImage.height*scale;
-        ctxOut.drawImage(capturedImage,0,0,w,h);
-        log('Imagem capturada e carregada para processamento');
-      }
-    });
+      capturedImage.onload = () => {
+        renderCapturedImage();
+        log('Imagem capturada com sucesso.');
+      };
+    }
 
-    function parseAnswerKey(text){ return text.split(',').map(s=>s.trim().toUpperCase()).filter(Boolean); }
+    function renderCapturedImage(){
+      const ctxOut = canvasOut.getContext('2d');
+      ctxOut.clearRect(0,0,canvasOut.width,canvasOut.height);
+      const scale = Math.min(canvasOut.width / capturedImage.width, canvasOut.height / capturedImage.height);
+      const w = capturedImage.width * scale;
+      const h = capturedImage.height * scale;
+      ctxOut.drawImage(capturedImage, 0, 0, w, h);
+    }
+
+    function readMarkedAnswers(){
+      const nQuestions = Number(numQ.value);
+      const nAlt = Number(numAlt.value);
+      const threshold = Number(markThreshold.value);
+
+      const work = document.createElement('canvas');
+      work.width = capturedImage.width;
+      work.height = capturedImage.height;
+      const ctx = work.getContext('2d', {willReadFrequently:true});
+      ctx.drawImage(capturedImage,0,0);
+
+      const marginX = work.width * 0.12;
+      const marginY = work.height * 0.10;
+      const gridW = work.width - marginX * 2;
+      const gridH = work.height - marginY * 2;
+      const rowGap = gridH / nQuestions;
+      const colGap = gridW / (nAlt + 1);
+      const radius = Math.max(7, Math.floor(Math.min(rowGap, colGap) * 0.28));
+
+      const marked = [];
+      const densityRows = [];
+
+      for(let q = 0; q < nQuestions; q++){
+        const y = marginY + rowGap * (q + 0.5);
+        const densities = [];
+        for(let a = 0; a < nAlt; a++){
+          const x = marginX + colGap * (a + 1);
+          const ix = Math.max(0, Math.floor(x - radius));
+          const iy = Math.max(0, Math.floor(y - radius));
+          const iw = Math.min(work.width - ix, radius * 2);
+          const ih = Math.min(work.height - iy, radius * 2);
+          const data = ctx.getImageData(ix, iy, iw, ih).data;
+
+          let darkPixels = 0;
+          let allPixels = 0;
+          for(let i = 0; i < data.length; i += 4){
+            const lum = (0.299 * data[i]) + (0.587 * data[i+1]) + (0.114 * data[i+2]);
+            if(lum < 140) darkPixels++;
+            allPixels++;
+          }
+          const density = allPixels ? darkPixels / allPixels : 0;
+          densities.push(density);
+        }
+        densityRows.push(densities);
+        const maxDensity = Math.max(...densities);
+        const idx = densities.indexOf(maxDensity);
+        marked.push(maxDensity >= threshold ? LETTERS[idx] : '-');
+      }
+
+      return {marked, densityRows};
+    }
+
+    function drawCorrections(marked, key){
+      const nQuestions = Number(numQ.value);
+      const nAlt = Number(numAlt.value);
+      const ctxOut = canvasOut.getContext('2d');
+      renderCapturedImage();
+
+      const width = canvasOut.width;
+      const height = canvasOut.height;
+      const marginX = width * 0.12;
+      const marginY = height * 0.10;
+      const gridW = width - marginX * 2;
+      const gridH = height - marginY * 2;
+      const rowGap = gridH / nQuestions;
+      const colGap = gridW / (nAlt + 1);
+
+      ctxOut.lineWidth = 2;
+      ctxOut.font = '14px sans-serif';
+
+      marked.forEach((ans, i)=>{
+        const y = marginY + rowGap * (i + 0.5);
+        const ok = ans === key[i];
+        ctxOut.fillStyle = ok ? 'rgba(52,211,153,0.9)' : 'rgba(248,113,113,0.9)';
+        ctxOut.fillText(`Q${i+1}: ${ans}`, marginX + gridW + 10, y + 4);
+
+        const idx = LETTERS.indexOf(ans);
+        if(idx >= 0){
+          const x = marginX + colGap * (idx + 1);
+          ctxOut.strokeStyle = ok ? 'rgba(52,211,153,0.95)' : 'rgba(248,113,113,0.95)';
+          ctxOut.beginPath();
+          ctxOut.arc(x, y, Math.max(8, rowGap*0.23), 0, Math.PI*2);
+          ctxOut.stroke();
+        }
+      });
+    }
+
+    function renderTable(marked, key){
+      resultTable.innerHTML = '';
+      marked.forEach((ans, idx)=>{
+        const tr = document.createElement('tr');
+        const ok = ans === key[idx];
+        tr.innerHTML = `
+          <td>${idx+1}</td>
+          <td>${ans}</td>
+          <td>${key[idx] || '-'}</td>
+          <td class="${ok ? 'good' : 'bad'}">${ok ? 'Correta' : 'Incorreta'}</td>
+        `;
+        resultTable.appendChild(tr);
+      });
+    }
+
+    function processImage(){
+      if(!capturedImage){
+        alert('Capture uma imagem primeiro.');
+        return;
+      }
+
+      const nQuestions = Number(numQ.value);
+      const nAlt = Number(numAlt.value);
+      const key = normalizeKey(parseAnswerKey(answerKey.value), nQuestions, nAlt);
+      const {marked, densityRows} = readMarkedAnswers();
+
+      let correct = 0;
+      marked.forEach((ans, i)=>{ if(ans === key[i]) correct++; });
+      const score = ((correct / nQuestions) * 100).toFixed(1);
+
+      drawCorrections(marked, key);
+      renderTable(marked, key);
+
+      const avgDensity = densityRows.flat().reduce((s,v)=>s+v,0) / Math.max(1,densityRows.flat().length);
+      resultBox.textContent = `Resultado: ${correct}/${nQuestions} (${score}%). Densidade média lida: ${avgDensity.toFixed(3)}.`;
+      log(`Correção concluída: ${correct}/${nQuestions} (${score}%).`);
+    }
+
+    startCamBtn.addEventListener('click', startCamera);
+    captureBtn.addEventListener('click', captureFrame);
+    processBtn.addEventListener('click', processImage);
 
     loadKeyBtn.addEventListener('click', ()=>{
       const arr = parseAnswerKey(answerKey.value);
-      if(arr.length!=Number(numQ.value)){
-        if(!confirm('O número de respostas fornecidas ('+arr.length+') não bate com Nº de questões ('+numQ.value+'). Continuar?')) return;
+      const nQuestions = Number(numQ.value);
+      const nAlt = Number(numAlt.value);
+      const allowed = LETTERS.slice(0,nAlt);
+
+      const invalid = arr.filter(v=>!allowed.includes(v));
+      if(invalid.length){
+        alert(`Existem alternativas inválidas no gabarito: ${invalid.join(', ')}`);
+        return;
       }
-      log('Gabarito carregado: '+arr.join(','));
-      resultBox.textContent = 'Gabarito carregado — pronto para análise.';
+
+      if(arr.length !== nQuestions){
+        if(!confirm(`Você informou ${arr.length} respostas, mas configurou ${nQuestions} questões. Deseja continuar mesmo assim?`)) return;
+      }
+      resultBox.textContent = 'Gabarito validado e pronto para leitura.';
+      log(`Gabarito validado (${arr.length} respostas).`);
     });
 
     exportBtn.addEventListener('click', ()=>{
-      const data = {numQ:Number(numQ.value), numAlt:Number(numAlt.value), key:parseAnswerKey(answerKey.value)};
+      const data = {
+        numQ: Number(numQ.value),
+        numAlt: Number(numAlt.value),
+        threshold: Number(markThreshold.value),
+        key: parseAnswerKey(answerKey.value)
+      };
       const blob = new Blob([JSON.stringify(data, null, 2)], {type:'application/json'});
       const url = URL.createObjectURL(blob);
-      const a = document.createElement('a'); a.href = url; a.download = 'gabarito.json'; a.click();
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = 'gabarito.json';
+      a.click();
       URL.revokeObjectURL(url);
-      log('Gabarito exportado (JSON)');
+      log('Arquivo gabarito.json exportado.');
     });
 
-    processBtn.addEventListener('click', ()=>{
-      if(!capturedImage){ alert('Capture uma imagem primeiro.'); return; }
-      if(!cvReady){ alert('OpenCV ainda não carregado. Aguarde.'); return; }
-      processImage();
+    [numQ, numAlt].forEach(input => {
+      input.addEventListener('change', ()=>{
+        if(video.videoWidth){
+          drawOverlayGrid(overlayCanvas.getContext('2d'), overlayCanvas.width, overlayCanvas.height, Number(numQ.value), Number(numAlt.value));
+        }
+      });
     });
-
-    function onOpenCvReady(){
-      cv['onRuntimeInitialized']=()=>{
-        cvReady = true; log('OpenCV pronto');
-      }
-    }
-
-    // O restante do código do processamento e análise de bolinhas permanece igual ao protótipo original.
-    // ...
   </script>
 </body>
 </html>
