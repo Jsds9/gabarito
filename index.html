@@ -2,80 +2,187 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Leitor de Gabarito</title>
+<title>Leitor de Gabarito - Protótipo</title>
+
 <style>
 body{
   margin:0;
+  font-family:Arial;
   background:#111;
   color:white;
-  font-family:Arial;
   text-align:center;
 }
 
-video, canvas{
+button{
+  padding:12px 20px;
+  margin:10px;
+  border:none;
+  border-radius:8px;
+  font-size:16px;
+}
+
+select{
+  padding:5px;
+  font-size:16px;
+}
+
+.tela{
+  display:none;
+  padding:20px;
+}
+
+.ativa{
+  display:block;
+}
+
+#camera-container{
+  position:relative;
   width:100%;
   max-width:500px;
+  margin:auto;
+}
+
+video{
+  width:100%;
   border-radius:10px;
 }
 
-button{
-  padding:10px 20px;
-  margin:10px;
-  font-size:16px;
-  border-radius:8px;
-  border:none;
+canvas{
+  position:absolute;
+  top:0;
+  left:0;
+  width:100%;
+  height:100%;
 }
 
-#resultado{
-  font-size:20px;
-  margin-top:10px;
+.linha-config{
+  margin:8px 0;
 }
 </style>
 </head>
 
 <body>
 
-<h2>Leitor de Gabarito</h2>
+<!-- TELA 1 -->
+<div id="tela1" class="tela ativa">
+  <h2>Leitor de Gabarito</h2>
+  <button onclick="irParaConfiguracao()">Iniciar</button>
+</div>
 
-<video id="video" autoplay playsinline></video>
-<canvas id="overlay"></canvas>
+<!-- TELA 2 -->
+<div id="tela2" class="tela">
+  <h3>Configurar Prova</h3>
 
-<br>
-<button onclick="capturar()">Capturar</button>
-<button onclick="analisar()">Analisar</button>
+  <label>Quantidade de questões:</label>
+  <select id="qtdQuestoes" onchange="gerarLista()">
+    <option value="5">5</option>
+    <option value="10">10</option>
+    <option value="15">15</option>
+    <option value="20" selected>20</option>
+  </select>
 
-<div id="resultado"></div>
+  <div id="listaQuestoes"></div>
+
+  <button onclick="salvarEIniciar()">Salvar e iniciar correção</button>
+</div>
+
+<!-- TELA 3 -->
+<div id="tela3" class="tela">
+  <h3>Correção</h3>
+
+  <div id="camera-container">
+    <video id="video" autoplay playsinline></video>
+    <canvas id="overlay"></canvas>
+  </div>
+
+  <br>
+  <button onclick="capturar()">Capturar</button>
+  <button onclick="analisar()">Analisar</button>
+
+  <div id="resultado"></div>
+
+  <button onclick="corrigirProximo()">Corrigir próximo</button>
+  <button onclick="alterarGabarito()">Alterar gabarito</button>
+</div>
 
 <script>
+let gabarito = [];
+let imagemCapturada = null;
+
 const video = document.getElementById("video");
 const overlay = document.getElementById("overlay");
 const ctx = overlay.getContext("2d");
 
-let imagemCapturada = null;
+function mostrarTela(id){
+  document.querySelectorAll(".tela").forEach(t=>t.classList.remove("ativa"));
+  document.getElementById(id).classList.add("ativa");
+}
 
-// Inicia câmera
-navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
-.then(stream => {
-  video.srcObject = stream;
-})
-.catch(err=>{
-  alert("Erro ao acessar câmera: " + err);
-});
+function irParaConfiguracao(){
+  mostrarTela("tela2");
+  gerarLista();
+}
 
-// Ajusta canvas
-video.addEventListener("loadedmetadata", ()=>{
-  overlay.width = video.videoWidth;
-  overlay.height = video.videoHeight;
-  desenharGrid();
-});
+function gerarLista(){
+  let qtd = parseInt(document.getElementById("qtdQuestoes").value);
+  let lista = document.getElementById("listaQuestoes");
+  lista.innerHTML = "";
 
-// Desenha grid guia
+  for(let i=1;i<=qtd;i++){
+    lista.innerHTML += `
+      <div class="linha-config">
+        Questão ${i}:
+        <select id="q${i}">
+          <option value="">-</option>
+          <option>A</option>
+          <option>B</option>
+          <option>C</option>
+          <option>D</option>
+          <option>E</option>
+        </select>
+      </div>
+    `;
+  }
+}
+
+function salvarEIniciar(){
+  let qtd = parseInt(document.getElementById("qtdQuestoes").value);
+  gabarito = [];
+
+  for(let i=1;i<=qtd;i++){
+    let valor = document.getElementById("q"+i).value;
+    if(valor === ""){
+      alert("Preencha todas as questões!");
+      return;
+    }
+    gabarito.push(valor);
+  }
+
+  localStorage.setItem("gabarito", JSON.stringify(gabarito));
+  localStorage.setItem("qtdQuestoes", qtd);
+
+  iniciarCamera();
+  mostrarTela("tela3");
+}
+
+function iniciarCamera(){
+  navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
+  .then(stream=>{
+    video.srcObject = stream;
+  });
+
+  video.onloadedmetadata = ()=>{
+    overlay.width = video.videoWidth;
+    overlay.height = video.videoHeight;
+    desenharGrid();
+  };
+}
+
 function desenharGrid(){
   ctx.clearRect(0,0,overlay.width,overlay.height);
 
   let largura = overlay.width * 0.8;
   let altura = overlay.height * 0.75;
-
   let inicioX = (overlay.width - largura)/2;
   let inicioY = (overlay.height - altura)/2;
 
@@ -83,15 +190,15 @@ function desenharGrid(){
   ctx.lineWidth=2;
   ctx.strokeRect(inicioX,inicioY,largura,altura);
 
-  let linhas=20;
-  let colunas=5;
+  let qtd = parseInt(localStorage.getItem("qtdQuestoes"));
+  let linhas = qtd;
+  let colunas = 5;
 
   let alturaLinha = altura/linhas;
   let larguraColuna = largura/colunas;
 
   ctx.lineWidth=1;
 
-  // linhas horizontais
   for(let i=1;i<linhas;i++){
     ctx.beginPath();
     ctx.moveTo(inicioX, inicioY + i*alturaLinha);
@@ -99,7 +206,6 @@ function desenharGrid(){
     ctx.stroke();
   }
 
-  // linhas verticais
   for(let j=1;j<colunas;j++){
     ctx.beginPath();
     ctx.moveTo(inicioX + j*larguraColuna, inicioY);
@@ -108,7 +214,6 @@ function desenharGrid(){
   }
 }
 
-// Captura imagem
 function capturar(){
   let canvasTemp = document.createElement("canvas");
   canvasTemp.width = overlay.width;
@@ -119,20 +224,22 @@ function capturar(){
   alert("Imagem capturada!");
 }
 
-// Análise simples
 function analisar(){
   if(!imagemCapturada){
     alert("Capture a imagem primeiro!");
     return;
   }
 
+  gabarito = JSON.parse(localStorage.getItem("gabarito"));
+  let qtd = parseInt(localStorage.getItem("qtdQuestoes"));
+
   let largura = overlay.width * 0.8;
   let altura = overlay.height * 0.75;
   let inicioX = (overlay.width - largura)/2;
   let inicioY = (overlay.height - altura)/2;
 
-  let linhas=20;
-  let colunas=5;
+  let linhas = qtd;
+  let colunas = 5;
   let alturaLinha = altura/linhas;
   let larguraColuna = largura/colunas;
 
@@ -161,23 +268,24 @@ function analisar(){
     respostasMarcadas.push(resposta);
   }
 
-  // EXEMPLO de gabarito fixo
-  let gabaritoCorreto = [
-    "A","B","C","D","E",
-    "A","B","C","D","E",
-    "A","B","C","D","E",
-    "A","B","C","D","E"
-  ];
-
   let acertos=0;
   for(let i=0;i<linhas;i++){
-    if(respostasMarcadas[i]===gabaritoCorreto[i]){
+    if(respostasMarcadas[i]===gabarito[i]){
       acertos++;
     }
   }
 
   document.getElementById("resultado").innerText =
-    "Acertos: " + acertos + " de 20";
+    "Acertos: " + acertos + " de " + linhas;
+}
+
+function corrigirProximo(){
+  imagemCapturada = null;
+  document.getElementById("resultado").innerText = "";
+}
+
+function alterarGabarito(){
+  mostrarTela("tela2");
 }
 </script>
 
