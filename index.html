@@ -2,7 +2,7 @@
 <html>
 <head>
 <meta charset="UTF-8">
-<title>Leitor de Gabarito - Protótipo</title>
+<title>Leitor de Gabarito</title>
 
 <style>
 body{
@@ -18,11 +18,6 @@ button{
   margin:10px;
   border:none;
   border-radius:8px;
-  font-size:16px;
-}
-
-select{
-  padding:5px;
   font-size:16px;
 }
 
@@ -42,7 +37,7 @@ select{
   margin:auto;
 }
 
-video{
+video, canvas{
   width:100%;
   border-radius:10px;
 }
@@ -51,12 +46,6 @@ canvas{
   position:absolute;
   top:0;
   left:0;
-  width:100%;
-  height:100%;
-}
-
-.linha-config{
-  margin:8px 0;
 }
 </style>
 </head>
@@ -66,7 +55,7 @@ canvas{
 <!-- TELA 1 -->
 <div id="tela1" class="tela ativa">
   <h2>Leitor de Gabarito</h2>
-  <button onclick="irParaConfiguracao()">Iniciar</button>
+  <button onclick="mostrarTela('tela2')">Iniciar</button>
 </div>
 
 <!-- TELA 2 -->
@@ -74,16 +63,16 @@ canvas{
   <h3>Configurar Prova</h3>
 
   <label>Quantidade de questões:</label>
-  <select id="qtdQuestoes" onchange="gerarLista()">
+  <select id="qtdQuestoes">
     <option value="5">5</option>
     <option value="10">10</option>
     <option value="15">15</option>
     <option value="20" selected>20</option>
   </select>
 
-  <div id="listaQuestoes"></div>
+  <div id="lista"></div>
 
-  <button onclick="salvarEIniciar()">Salvar e iniciar correção</button>
+  <button onclick="salvarGabarito()">Salvar e iniciar correção</button>
 </div>
 
 <!-- TELA 3 -->
@@ -97,17 +86,18 @@ canvas{
 
   <br>
   <button onclick="capturar()">Capturar</button>
-  <button onclick="analisar()">Analisar</button>
+  <button onclick="analisar()" id="btnAnalisar" disabled>Analisar</button>
 
   <div id="resultado"></div>
 
   <button onclick="corrigirProximo()">Corrigir próximo</button>
-  <button onclick="alterarGabarito()">Alterar gabarito</button>
+  <button onclick="mostrarTela('tela2')">Alterar gabarito</button>
 </div>
 
 <script>
 let gabarito = [];
 let imagemCapturada = null;
+let pontos = [];
 
 const video = document.getElementById("video");
 const overlay = document.getElementById("overlay");
@@ -116,22 +106,16 @@ const ctx = overlay.getContext("2d");
 function mostrarTela(id){
   document.querySelectorAll(".tela").forEach(t=>t.classList.remove("ativa"));
   document.getElementById(id).classList.add("ativa");
-}
-
-function irParaConfiguracao(){
-  mostrarTela("tela2");
-  gerarLista();
+  if(id === "tela2") gerarLista();
 }
 
 function gerarLista(){
   let qtd = parseInt(document.getElementById("qtdQuestoes").value);
-  let lista = document.getElementById("listaQuestoes");
+  let lista = document.getElementById("lista");
   lista.innerHTML = "";
-
   for(let i=1;i<=qtd;i++){
     lista.innerHTML += `
-      <div class="linha-config">
-        Questão ${i}:
+      <div>Questão ${i}:
         <select id="q${i}">
           <option value="">-</option>
           <option>A</option>
@@ -145,21 +129,18 @@ function gerarLista(){
   }
 }
 
-function salvarEIniciar(){
+function salvarGabarito(){
   let qtd = parseInt(document.getElementById("qtdQuestoes").value);
   gabarito = [];
 
   for(let i=1;i<=qtd;i++){
-    let valor = document.getElementById("q"+i).value;
-    if(valor === ""){
-      alert("Preencha todas as questões!");
-      return;
-    }
-    gabarito.push(valor);
+    let val = document.getElementById("q"+i).value;
+    if(val===""){ alert("Preencha todas!"); return; }
+    gabarito.push(val);
   }
 
   localStorage.setItem("gabarito", JSON.stringify(gabarito));
-  localStorage.setItem("qtdQuestoes", qtd);
+  localStorage.setItem("qtd", qtd);
 
   iniciarCamera();
   mostrarTela("tela3");
@@ -167,125 +148,97 @@ function salvarEIniciar(){
 
 function iniciarCamera(){
   navigator.mediaDevices.getUserMedia({video:{facingMode:"environment"}})
-  .then(stream=>{
-    video.srcObject = stream;
-  });
+  .then(stream=> video.srcObject = stream);
 
   video.onloadedmetadata = ()=>{
     overlay.width = video.videoWidth;
     overlay.height = video.videoHeight;
-    desenharGrid();
   };
 }
 
-function desenharGrid(){
-  ctx.clearRect(0,0,overlay.width,overlay.height);
+function capturar(){
+  let temp = document.createElement("canvas");
+  temp.width = overlay.width;
+  temp.height = overlay.height;
+  let tctx = temp.getContext("2d");
+  tctx.drawImage(video,0,0);
+  imagemCapturada = tctx.getImageData(0,0,temp.width,temp.height);
 
-  let largura = overlay.width * 0.8;
-  let altura = overlay.height * 0.75;
-  let inicioX = (overlay.width - largura)/2;
-  let inicioY = (overlay.height - altura)/2;
+  ctx.putImageData(imagemCapturada,0,0);
 
-  ctx.strokeStyle="lime";
-  ctx.lineWidth=2;
-  ctx.strokeRect(inicioX,inicioY,largura,altura);
+  pontos = [];
+  document.getElementById("btnAnalisar").disabled = true;
 
-  let qtd = parseInt(localStorage.getItem("qtdQuestoes"));
-  let linhas = qtd;
-  let colunas = 5;
-
-  let alturaLinha = altura/linhas;
-  let larguraColuna = largura/colunas;
-
-  ctx.lineWidth=1;
-
-  for(let i=1;i<linhas;i++){
-    ctx.beginPath();
-    ctx.moveTo(inicioX, inicioY + i*alturaLinha);
-    ctx.lineTo(inicioX + largura, inicioY + i*alturaLinha);
-    ctx.stroke();
-  }
-
-  for(let j=1;j<colunas;j++){
-    ctx.beginPath();
-    ctx.moveTo(inicioX + j*larguraColuna, inicioY);
-    ctx.lineTo(inicioX + j*larguraColuna, inicioY + altura);
-    ctx.stroke();
-  }
+  overlay.onclick = marcarPonto;
+  alert("Toque nos 4 cantos do gabarito.");
 }
 
-function capturar(){
-  let canvasTemp = document.createElement("canvas");
-  canvasTemp.width = overlay.width;
-  canvasTemp.height = overlay.height;
-  let ctxTemp = canvasTemp.getContext("2d");
-  ctxTemp.drawImage(video,0,0);
-  imagemCapturada = ctxTemp.getImageData(0,0,canvasTemp.width,canvasTemp.height);
-  alert("Imagem capturada!");
+function marcarPonto(e){
+  if(pontos.length>=4) return;
+
+  let rect = overlay.getBoundingClientRect();
+  let x = (e.clientX - rect.left) * (overlay.width / rect.width);
+  let y = (e.clientY - rect.top) * (overlay.height / rect.height);
+
+  pontos.push({x,y});
+
+  ctx.fillStyle="lime";
+  ctx.beginPath();
+  ctx.arc(x,y,8,0,2*Math.PI);
+  ctx.fill();
+
+  if(pontos.length===4){
+    overlay.onclick=null;
+    document.getElementById("btnAnalisar").disabled=false;
+  }
 }
 
 function analisar(){
-  if(!imagemCapturada){
-    alert("Capture a imagem primeiro!");
-    return;
-  }
-
+  let qtd = parseInt(localStorage.getItem("qtd"));
   gabarito = JSON.parse(localStorage.getItem("gabarito"));
-  let qtd = parseInt(localStorage.getItem("qtdQuestoes"));
 
-  let largura = overlay.width * 0.8;
-  let altura = overlay.height * 0.75;
-  let inicioX = (overlay.width - largura)/2;
-  let inicioY = (overlay.height - altura)/2;
+  let [p1,p2,p3,p4] = pontos;
 
-  let linhas = qtd;
-  let colunas = 5;
-  let alturaLinha = altura/linhas;
-  let larguraColuna = largura/colunas;
+  let larguraTop = p2.x - p1.x;
+  let alturaLeft = p4.y - p1.y;
 
-  let respostasMarcadas=[];
+  let respostas=[];
   let letras=["A","B","C","D","E"];
 
-  for(let i=0;i<linhas;i++){
+  for(let i=0;i<qtd;i++){
     let resposta=null;
 
-    for(let j=0;j<colunas;j++){
-      let x = Math.floor(inicioX + j*larguraColuna + larguraColuna/2);
-      let y = Math.floor(inicioY + i*alturaLinha + alturaLinha/2);
+    for(let j=0;j<5;j++){
 
-      let index = (y*overlay.width + x)*4;
+      let x = p1.x + (larguraTop*(j+0.5)/5);
+      let y = p1.y + (alturaLeft*(i+0.5)/qtd);
+
+      let index = (Math.floor(y)*overlay.width + Math.floor(x))*4;
       let r = imagemCapturada.data[index];
       let g = imagemCapturada.data[index+1];
       let b = imagemCapturada.data[index+2];
-
       let brilho = (r+g+b)/3;
 
-      if(brilho < 100){
-        resposta = letras[j];
-      }
+      if(brilho<100) resposta = letras[j];
     }
 
-    respostasMarcadas.push(resposta);
+    respostas.push(resposta);
   }
 
   let acertos=0;
-  for(let i=0;i<linhas;i++){
-    if(respostasMarcadas[i]===gabarito[i]){
-      acertos++;
-    }
+  for(let i=0;i<qtd;i++){
+    if(respostas[i]===gabarito[i]) acertos++;
   }
 
   document.getElementById("resultado").innerText =
-    "Acertos: " + acertos + " de " + linhas;
+    "Acertos: "+acertos+" de "+qtd;
 }
 
 function corrigirProximo(){
-  imagemCapturada = null;
-  document.getElementById("resultado").innerText = "";
-}
-
-function alterarGabarito(){
-  mostrarTela("tela2");
+  pontos=[];
+  imagemCapturada=null;
+  document.getElementById("resultado").innerText="";
+  iniciarCamera();
 }
 </script>
 
