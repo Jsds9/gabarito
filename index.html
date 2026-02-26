@@ -116,9 +116,9 @@ function gerarLista(){
 }
 
 async function iniciarCamera(){
-  stream = await navigator.mediaDevices.getUserMedia({video:true});
-  video.srcObject = stream;
-}
+ stream = await navigator.mediaDevices.getUserMedia({
+  video: { facingMode: { exact: "environment" } }
+});
 
 function capturar(){
   canvas.width = video.videoWidth;
