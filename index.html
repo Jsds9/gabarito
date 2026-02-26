@@ -63,7 +63,7 @@ canvas{
   <h3>Configurar Prova</h3>
 
   <label>Quantidade de questões:</label>
-  <select id="qtdQuestoes">
+ <select id="qtdQuestoes" onchange="gerarLista()">
     <option value="5">5</option>
     <option value="10">10</option>
     <option value="15">15</option>
@@ -213,11 +213,27 @@ function analisar(){
       let x = p1.x + (larguraTop*(j+0.5)/5);
       let y = p1.y + (alturaLeft*(i+0.5)/qtd);
 
-      let index = (Math.floor(y)*overlay.width + Math.floor(x))*4;
+     let soma = 0;
+let contador = 0;
+
+for(let dx=-5; dx<=5; dx++){
+  for(let dy=-5; dy<=5; dy++){
+    let px = Math.floor(x + dx);
+    let py = Math.floor(y + dy);
+
+    if(px>=0 && py>=0 && px<overlay.width && py<overlay.height){
+      let index = (py*overlay.width + px)*4;
       let r = imagemCapturada.data[index];
       let g = imagemCapturada.data[index+1];
       let b = imagemCapturada.data[index+2];
-      let brilho = (r+g+b)/3;
+      soma += (r+g+b)/3;
+      contador++;
+    }
+  }
+}
+
+let brilho = soma/contador;
+
 
       if(brilho<100) resposta = letras[j];
     }
