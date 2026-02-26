@@ -116,11 +116,13 @@ function gerarLista(){
 }
 
 async function iniciarCamera(){
- stream = await navigator.mediaDevices.getUserMedia({
-  video: { facingMode: { exact: "environment" } }
-});
+  stream = await navigator.mediaDevices.getUserMedia({
+    video: { facingMode: "environment" }
+  });
+  video.srcObject = stream;
+}
 
-function capturar(){
+ function capturar(){
   canvas.width = video.videoWidth;
   canvas.height = video.videoHeight;
   ctx.drawImage(video,0,0);
