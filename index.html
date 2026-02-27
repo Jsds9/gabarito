@@ -230,7 +230,10 @@ function analisar(){
       }
       let media = soma/(imgData.length/4);
 
-      if(media<170){
+console.log("Questão", i+1, "Alternativa", "ABCDE"[j], "Média:", media);
+
+if(media < 170){
+
         if("ABCDE"[j]===respostasCorretas[i]){
           acertos++;
         }
