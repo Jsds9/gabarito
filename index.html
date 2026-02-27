@@ -214,35 +214,49 @@ canvas.addEventListener("pointerup", () => {
 
 
 function analisar(){
+
   let qtd = respostasCorretas.length;
-  let acertos=0;
+  let acertos = 0;
 
-  for(let i=0;i<qtd;i++){
-    let y = pontos[0].y + ((pontos[3].y - pontos[0].y)/qtd)*(i+0.5);
+  for(let i = 0; i < qtd; i++){
 
-    for(let j=0;j<5;j++){
-      let x = pontos[0].x + ((pontos[1].x - pontos[0].x)/5)*(j+0.5);
+    let medias = [];
 
-      let imgData = ctx.getImageData(x-7,y-7,14,14).data;
-      let soma=0;
-      for(let k=0;k<imgData.length;k+=4){
-        soma += imgData[k];
+    // posição vertical proporcional
+    let y = pontos[0].y + ((pontos[3].y - pontos[0].y)/qtd)*(i + 0.5);
+
+    for(let j = 0; j < 5; j++){
+
+      // posição horizontal proporcional
+      let x = pontos[0].x + ((pontos[1].x - pontos[0].x)/5)*(j + 0.5);
+
+      let imgData = ctx.getImageData(x-7, y-7, 14, 14).data;
+
+      let soma = 0;
+
+      for(let k = 0; k < imgData.length; k += 4){
+        soma += imgData[k]; // canal vermelho
       }
-      let media = soma/(imgData.length/4);
 
-console.log("Questão", i+1, "Alternativa", "ABCDE"[j], "Média:", media);
+      let media = soma / (imgData.length / 4);
 
-if(media < 170){
+      medias.push(media);
+    }
 
-        if("ABCDE"[j]===respostasCorretas[i]){
-          acertos++;
-        }
-      }
+    // encontrar alternativa mais escura (menor média)
+    let menorValor = Math.min(...medias);
+    let indiceMaisEscuro = medias.indexOf(menorValor);
+
+    let alternativaMarcada = "ABCDE"[indiceMaisEscuro];
+
+    if(alternativaMarcada === respostasCorretas[i]){
+      acertos++;
     }
   }
 
   resultado.innerText = `${acertos} acertos de ${qtd}`;
 }
+
 
 function corrigirProximo(){
   resultado.innerText="";
