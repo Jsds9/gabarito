@@ -73,10 +73,13 @@ let canvas = document.getElementById("canvas");
 let ctx = canvas.getContext("2d");
 let stream;
 let respostasCorretas = [];
-let pontos = [];
-let pontoSelecionado = null;
-let raio = 15;
 let imagemBase = null;
+
+let linha1Y = null;
+let linha2Y = null;
+
+let linhaSelecionada = null;
+let toleranciaToque = 20;
 
 
 function irTela2(){
@@ -134,13 +137,17 @@ imagemBase = ctx.getImageData(0,0,canvas.width,canvas.height);
   stream.getTracks().forEach(track=>track.stop());
   video.style.display="none";
 
-  criarRetanguloInicial();
-  desenhar();
+  criarLinhasIniciais();
+desenharLinhas();
+
+
+function criarLinhasIniciais(){
+
+  linha1Y = canvas.height * 0.4;
+  linha2Y = canvas.height * 0.5;
+
 }
 
-function criarRetanguloInicial(){
-  let margemX = canvas.width*0.2;
-  let margemY = canvas.height*0.2;
 
   pontos = [
     {x:margemX,y:margemY},
@@ -150,66 +157,64 @@ function criarRetanguloInicial(){
   ];
 }
 
-function desenhar(){
+function desenharLinhas(){
 
   ctx.putImageData(imagemBase, 0, 0);
 
-  ctx.strokeStyle="red";
-  ctx.lineWidth=3;
+  ctx.strokeStyle = "red";
+  ctx.lineWidth = 3;
+
   ctx.beginPath();
-  ctx.moveTo(pontos[0].x,pontos[0].y);
-  for(let i=1;i<4;i++){
-    ctx.lineTo(pontos[i].x,pontos[i].y);
-  }
-  ctx.closePath();
+  ctx.moveTo(canvas.width * 0.3, linha1Y);
+  ctx.lineTo(canvas.width * 0.7, linha1Y);
   ctx.stroke();
 
-  ctx.fillStyle="blue";
-  pontos.forEach(p=>{
-    ctx.beginPath();
-    ctx.arc(p.x,p.y,raio,0,Math.PI*2);
-    ctx.fill();
-  });
+  ctx.beginPath();
+  ctx.moveTo(canvas.width * 0.3, linha2Y);
+  ctx.lineTo(canvas.width * 0.7, linha2Y);
+  ctx.stroke();
+
 }
 
-canvas.addEventListener("pointerdown", e => {
-  const rect = canvas.getBoundingClientRect();
-  const scaleX = canvas.width / rect.width;
-  const scaleY = canvas.height / rect.height;
 
-  const x = (e.clientX - rect.left) * scaleX;
+canvas.addEventListener("pointerdown", e => {
+
+  const rect = canvas.getBoundingClientRect();
+  const scaleY = canvas.height / rect.height;
   const y = (e.clientY - rect.top) * scaleY;
 
-  pontos.forEach((p, i) => {
-    const dx = p.x - x;
-    const dy = p.y - y;
-    if (Math.sqrt(dx * dx + dy * dy) < raio) {
-      pontoSelecionado = i;
-    }
-  });
+  if(Math.abs(y - linha1Y) < toleranciaToque){
+    linhaSelecionada = 1;
+  }
+  else if(Math.abs(y - linha2Y) < toleranciaToque){
+    linhaSelecionada = 2;
+  }
+
 });
 
 canvas.addEventListener("pointermove", e => {
-  if (pontoSelecionado !== null) {
-    const rect = canvas.getBoundingClientRect();
-    const scaleX = canvas.width / rect.width;
-    const scaleY = canvas.height / rect.height;
 
-    let x = (e.clientX - rect.left) * scaleX;
+  if(linhaSelecionada !== null){
+
+    const rect = canvas.getBoundingClientRect();
+    const scaleY = canvas.height / rect.height;
     let y = (e.clientY - rect.top) * scaleY;
 
-    x = Math.max(0, Math.min(canvas.width, x));
     y = Math.max(0, Math.min(canvas.height, y));
 
-    pontos[pontoSelecionado].x = x;
-    pontos[pontoSelecionado].y = y;
+    if(linhaSelecionada === 1){
+      linha1Y = y;
+    } else {
+      linha2Y = y;
+    }
 
-    desenhar();
+    desenharLinhas();
   }
+
 });
 
 canvas.addEventListener("pointerup", () => {
-  pontoSelecionado = null;
+  linhaSelecionada = null;
 });
 
 
@@ -218,38 +223,39 @@ function analisar(){
   let qtd = respostasCorretas.length;
   let acertos = 0;
 
+  // garantir ordem correta
+  let y1 = Math.min(linha1Y, linha2Y);
+  let y2 = Math.max(linha1Y, linha2Y);
+
+  let distancia = y2 - y1;
+
   for(let i = 0; i < qtd; i++){
+
+    let y = y1 + distancia * i;
 
     let medias = [];
 
-    // posição vertical proporcional
-    let y = pontos[0].y + ((pontos[3].y - pontos[0].y)/qtd)*(i + 0.5);
-
     for(let j = 0; j < 5; j++){
 
-      // posição horizontal proporcional
-      let x = pontos[0].x + ((pontos[1].x - pontos[0].x)/5)*(j + 0.5);
+      let x = canvas.width * (0.3 + (0.4/5) * (j + 0.5));
 
       let imgData = ctx.getImageData(x-7, y-7, 14, 14).data;
 
       let soma = 0;
 
       for(let k = 0; k < imgData.length; k += 4){
-        soma += imgData[k]; // canal vermelho
+        soma += imgData[k];
       }
 
       let media = soma / (imgData.length / 4);
-
       medias.push(media);
     }
 
-    // encontrar alternativa mais escura (menor média)
-    let menorValor = Math.min(...medias);
-    let indiceMaisEscuro = medias.indexOf(menorValor);
+    let menor = Math.min(...medias);
+    let indice = medias.indexOf(menor);
+    let marcada = "ABCDE"[indice];
 
-    let alternativaMarcada = "ABCDE"[indiceMaisEscuro];
-
-    if(alternativaMarcada === respostasCorretas[i]){
+    if(marcada === respostasCorretas[i]){
       acertos++;
     }
   }
